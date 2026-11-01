@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pose × Costume × Character</title>
+<style>
+:root{
+  --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --line:#2a3040;
+  --fg:#e6edf3; --dim:#8b949e; --accent:#8fb4ff; --accent2:#a855f7;
+  --ok:#3fb950; --warn:#d29922;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--fg);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans",sans-serif;
+  min-height:100vh; display:flex; flex-direction:column;
+}
+header{
+  padding:14px 20px; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  background:linear-gradient(180deg,#12171f,#0e1116);
+}
+header h1{font-size:16px; font-weight:600; letter-spacing:.02em}
+header .sub{color:var(--dim); font-size:12px}
+header nav{margin-left:auto; display:flex; gap:8px}
+header nav a{
+  color:var(--dim); text-decoration:none; font-size:12px;
+  padding:5px 11px; border:1px solid var(--line); border-radius:6px;
+  transition:.15s;
+}
+header nav a:hover{color:var(--fg); border-color:var(--accent)}
+header nav a.on{color:var(--fg); border-color:var(--accent); background:#1b2333}
+
+main{
+  flex:1; display:grid; grid-template-columns:repeat(3,1fr);
+  gap:1px; background:var(--line); min-height:0;
+}
+@media(max-width:1100px){ main{grid-template-columns:1fr} }
+
+.panel{
+  background:var(--bg); display:flex; flex-direction:column;
+  min-height:0; overflow:hidden;
+}
+.panel-hd{
+  padding:10px 14px; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:10px; background:var(--panel);
+}
+.panel-hd .tag{
+  font-size:11px; padding:2px 7px; border-radius:4px;
+  background:#1b2333; color:var(--accent); font-weight:600;
+}
+.panel-hd .cnt{color:var(--dim); font-size:11px; margin-left:auto}
+.panel-hd .clear{
+  font-size:11px; color:var(--dim); background:none; border:1px solid var(--line);
+  border-radius:4px; padding:2px 8px; cursor:pointer;
+}
+.panel-hd .clear:hover{color:#ff7b72; border-color:#ff7b72}
+
+.search{
+  padding:8px 14px; background:var(--panel);
+  border-bottom:1px solid var(--line);
+}
+.search input{
+  width:100%; padding:7px 10px; border-radius:6px;
+  border:1px solid var(--line); background:#0b0e13; color:var(--fg);
+  font-size:13px; outline:none;
+}
+.search input:focus{border-color:var(--accent)}
+.search input::placeholder{color:#4b5563}
+
+/* 预览区 */
+.preview{
+  padding:12px; background:var(--panel2); border-bottom:1px solid var(--line);
+  display:flex; gap:12px; align-items:flex-start; min-height:150px;
+}
+.preview .big{
+  width:112px; flex:none; border-radius:6px; overflow:hidden;
+  background:#0b0e13; border:1px solid var(--line);
+  aspect-ratio:3/4; display:flex; align-items:center; justify-content:center;
+}
+.preview .big img{width:100%; height:100%; object-fit:contain; display:block}
+.preview .big.empty{color:#374151; font-size:11px}
+.preview .meta{flex:1; min-width:0}
+.preview .meta .ttl{font-size:13px; font-weight:600; margin-bottom:4px; word-break:break-all}
+.preview .meta .ln{font-size:11px; color:var(--dim); margin-bottom:2px}
+.preview .meta .tags{margin-top:6px; display:flex; flex-wrap:wrap; gap:4px}
+.preview .meta .tags span{
+  font-size:10px; padding:1px 6px; border-radius:3px;
+  background:#21283a; color:#9db4d6; border:1px solid #2d3648;
+}
+
+/* 角度切换 */
+.angles{display:flex; gap:4px; margin-top:8px; flex-wrap:wrap}
+.angles button{
+  padding:3px 8px; font-size:11px; border-radius:4px; cursor:pointer;
+  border:1px solid var(--line); background:#0b0e13; color:var(--dim);
+}
+.angles button:hover{border-color:var(--accent); color:var(--fg)}
+.angles button.on{background:#1e2c47; border-color:var(--accent); color:#cfe0ff}
+
+/* 列表 */
+.list{
+  flex:1; overflow-y:auto; padding:10px;
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(74px,1fr));
+  gap:7px; align-content:start;
+}
+.list::-webkit-scrollbar{width:8px}
+.list::-webkit-scrollbar-thumb{background:#2a3040; border-radius:4px}
+.list::-webkit-scrollbar-track{background:transparent}
+
+.item{
+  border:2px solid transparent; border-radius:5px; overflow:hidden;
+  cursor:pointer; background:#0b0e13; position:relative;
+  transition:.12s;
+}
+.item:hover{border-color:#3a4560}
+.item.on{border-color:var(--accent); box-shadow:0 0 0 2px #8fb4ff33}
+.item img{width:100%; display:block; aspect-ratio:3/4; object-fit:cover}
+.item.c-costume img{aspect-ratio:2/3}
+.item.c-face img{aspect-ratio:4/5}
+.item .no{
+  position:absolute; bottom:0; left:0; right:0;
+  font-size:9px; padding:1px 3px; text-align:center;
+  background:#000000aa; color:#c9d5e5; letter-spacing:.02em;
+}
+
+
+/* 生成区 */
+.gen-area{
+  width:100%; border-top:1px solid var(--line); background:var(--panel);
+  padding:14px 20px; display:flex; flex-direction:column; gap:10px;
+}
+.gen-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.gen-bar strong{font-size:13px}
+.gen-bar .status{font-size:11px; color:var(--dim); margin-left:auto}
+.gen-bar select, .gen-bar input[type=text]{
+  background:#0b0e13; color:var(--fg); border:1px solid var(--line);
+  border-radius:5px; padding:5px 9px; font-size:12px; outline:none;
+}
+.gen-bar select:focus, .gen-bar input[type=text]:focus{border-color:var(--accent)}
+.gen-bar input[type=text]{flex:1; min-width:160px}
+.gen-btn{
+  padding:8px 22px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600;
+  border:1px solid #2d5a8c; background:#1d3a5c; color:#cfe0ff; transition:.15s;
+}
+.gen-btn:hover:not(:disabled){background:#24466e}
+.gen-btn:disabled{opacity:.45; cursor:not-allowed}
+.gen-result{
+  display:none; flex-direction:column; gap:8px;
+  border-top:1px solid var(--line); padding-top:10px;
+}
+.gen-result.on{display:flex}
+.gen-result img{
+  max-width:100%; max-height:60vh; object-fit:contain;
+  border-radius:6px; border:1px solid var(--line); background:#0b0e13;
+  align-self:center;
+}
+.gen-logs{
+  font-size:11px; color:var(--dim); font-family:ui-monospace,monospace;
+  white-space:pre-wrap; max-height:120px; overflow-y:auto;
+  background:#0b0e13; padding:8px 10px; border-radius:5px; border:1px solid var(--line);
+}
+.gen-logs .err{color:#ff8b8b}
+.gen-actions{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  padding:10px 0; border-top:1px dashed var(--line);
+}
+.save-btn{
+  padding:7px 16px; border-radius:6px; cursor:pointer; font-size:12px;
+  border:1px solid var(--line); background:#1b2333; color:var(--fg);
+  transition:.15s; white-space:nowrap;
+}
+.save-btn:hover{border-color:var(--accent); background:#212d45}
+.save-btn.primary{background:#1d3a5c; border-color:#2d5a8c; color:#cfe0ff}
+.save-btn.primary:hover{background:#24466e}
+.saved-hint{font-size:11px; color:#7ec699; margin-left:auto}
+
+/* 输出区 */
+.output{
+  border-top:2px solid var(--line); background:var(--panel);
+  display:flex; gap:14px; align-items:flex-start;
+  flex-wrap:wrap; padding:0;
+}
+/* 合成预览区 */
+.sheet-area{
+  width:100%; border-bottom:1px solid var(--line);
+  background:#0b0e13; display:flex; flex-direction:column;
+}
+.sheet-bar{
+  display:flex; align-items:center; gap:10px; padding:8px 14px;
+  border-bottom:1px solid var(--line); background:var(--panel);
+  flex-wrap:wrap;
+}
+.sheet-bar strong{font-size:12px}
+.sheet-bar .hint{font-size:11px; color:var(--dim)}
+.sheet-bar .tools{margin-left:auto; display:flex; gap:7px; align-items:center}
+.sheet-bar button{
+  padding:4px 11px; font-size:11px; border-radius:5px; cursor:pointer;
+  border:1px solid var(--line); background:#1b2333; color:var(--fg);
+  transition:.15s;
+}
+.sheet-bar button:hover{border-color:var(--accent); background:#212d45}
+.sheet-bar button.primary{background:#1d3a5c; border-color:#2d5a8c; color:#cfe0ff}
+.sheet-bar button:disabled{opacity:.4; cursor:default}
+.sheet-bar label{
+  font-size:11px; color:var(--dim); display:flex; align-items:center;
+  gap:5px; cursor:pointer; user-select:none;
+}
+.sheet-bar input[type=checkbox]{accent-color:#8fb4ff; cursor:pointer}
+#sheet{
+  display:block; width:100%; max-height:52vh; object-fit:contain;
+  background:#0b0e13;
+}
+.sheet-empty{
+  padding:44px 20px; text-align:center; color:#374151; font-size:12px;
+}
+.sheet-empty b{color:#4b5563}
+.prompt-area{
+  flex:1; min-width:320px; padding:14px 20px 16px;
+  display:flex; flex-direction:column; gap:10px;
+}
+.prompt-area .out-hd{display:flex; align-items:center; gap:10px}
+.prompt-area .out-hd strong{font-size:13px}
+.prompt-area .out-hd .hint{font-size:11px; color:var(--dim); margin-left:auto}
+.prompt-area textarea{
+  width:100%; min-height:96px; resize:vertical;
+  background:#0b0e13; color:#c9e8d0; border:1px solid var(--line);
+  border-radius:6px; padding:10px 12px; font-size:12px; line-height:1.7;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; outline:none;
+}
+.prompt-area textarea:focus{border-color:var(--accent)}
+.prompt-area .btns{display:flex; gap:7px; flex-wrap:wrap}
+.prompt-area button{
+  padding:8px 16px; border-radius:6px; cursor:pointer; font-size:12px;
+  border:1px solid var(--line); background:#1b2333; color:var(--fg);
+  white-space:nowrap; transition:.15s;
+}
+.prompt-area button:hover{border-color:var(--accent); background:#212d45}
+.prompt-area button.primary{background:#1d3a5c; border-color:#2d5a8c; color:#cfe0ff}
+.prompt-area button.primary:hover{background:#24466e}
+.toast{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+  background:#1d3a5c; color:#cfe0ff; padding:10px 22px; border-radius:8px;
+  border:1px solid #2d5a8c; font-size:13px; opacity:0; transition:.25s;
+  pointer-events:none; z-index:99;
+}
+.toast.show{transform:translateX(-50%) translateY(0); opacity:1}
+.more{
+  grid-column:1/-1; padding:10px; text-align:center; font-size:11px;
+  color:var(--dim); background:#0b0e13; border:1px dashed var(--line);
+  border-radius:5px; cursor:pointer;
+}
+.more:hover{color:var(--fg); border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>三合一工作台</h1>
+  <span class="sub">姿势定骨架 · 衣装定皮相 · 人像定脸</span>
+  <nav>
+    <a href="/app/combine.html">姿势图鉴</a>
+    <a href="costume.html">衣装图鉴</a>
+    <a href="face.html">人像图鉴</a>
+    <a href="combine.html" class="on">三合一</a>
+  </nav>
+</header>
+
+<main>
+  <!-- 姿势 -->
+  <section class="panel">
+    <div class="panel-hd">
+      <span class="tag">姿势</span>
+      <span class="cnt" id="cnt-pose">载入中…</span>
+      <button class="clear" data-clear="pose">清除</button>
+    </div>
+    <div class="search"><input id="q-pose" placeholder="搜姿态名 / 编号 / 分类（站立、P019…）"></div>
+    <div class="preview" id="prev-pose">
+      <div class="big empty" id="big-pose">未选</div>
+      <div class="meta" id="meta-pose"><div class="ln">点下面的图选一组姿态</div></div>
+    </div>
+    <div class="list" id="list-pose"></div>
+  </section>
+
+  <!-- 衣装 -->
+  <section class="panel">
+    <div class="panel-hd">
+      <span class="tag">衣装</span>
+      <span class="cnt" id="cnt-costume">载入中…</span>
+      <button class="clear" data-clear="costume">清除</button>
+    </div>
+    <div class="search"><input id="q-costume" placeholder="搜编号 / 标签（black、蕾丝、dress…）"></div>
+    <div class="preview" id="prev-costume">
+      <div class="big empty" id="big-costume">未选</div>
+      <div class="meta" id="meta-costume"><div class="ln">点下面的图选一套衣装</div></div>
+    </div>
+    <div class="list" id="list-costume"></div>
+  </section>
+
+  <!-- 人像 -->
+  <section class="panel">
+    <div class="panel-hd">
+      <span class="tag">人像</span>
+      <span class="cnt" id="cnt-face">载入中…</span>
+      <button class="clear" data-clear="face">清除</button>
+    </div>
+    <div class="search"><input id="q-face" placeholder="搜编号 / 发型（short、短发、long…）"></div>
+    <div class="preview" id="prev-face">
+      <div class="big empty" id="big-face">未选</div>
+      <div class="meta" id="meta-face"><div class="ln">点下面的图选一张人像</div></div>
+    </div>
+    <div class="list" id="list-face"></div>
+  </section>
+</main>
+
+<footer class="output">
+  <!-- 合成图预览 -->
+  <div class="sheet-area">
+    <div class="sheet-bar">
+      <strong>合成预览</strong>
+      <span class="hint" id="sheet-hint">选图后自动拼合</span>
+      <label><input type="checkbox" id="opt-ghost" checked> 姿势作底图</label>
+      <label><input type="checkbox" id="opt-knock"> 去背景</label>
+      <div class="tools">
+        <button id="btn-sheet-dl" disabled>下载合成图</button>
+        <button id="btn-sheet-new" disabled>新窗口看大图</button>
+      </div>
+    </div>
+    <canvas id="sheet" width="1200" height="600" style="display:none"></canvas>
+    <div class="sheet-empty" id="sheet-empty">
+      <b>选齐姿势 / 衣装 / 人像</b>后，这里会拼出一张参考板
+    </div>
+  </div>
+
+  <!-- 提示词 -->
+  <div class="prompt-area">
+    <div class="out-hd">
+      <strong>合成提示词</strong>
+      <span class="hint" id="out-hint">选齐三项后自动生成</span>
+    </div>
+    <textarea id="prompt" placeholder="选择姿势 / 衣装 / 人像后，这里会自动拼出提示词…" readonly></textarea>
+    <div class="btns">
+      <button class="primary" id="btn-copy">复制提示词</button>
+      <button id="btn-paths">复制图片路径</button>
+      <button id="btn-reset">全部重置</button>
+    </div>
+  </div>
+
+  <!-- 生成区 -->
+  <div class="gen-area">
+    <div class="gen-bar">
+      <strong>出图</strong>
+      <select id="gen-size">
+        <option value="1024x1536">1024×1536 竖幅</option>
+        <option value="1024x1024">1024×1024 方形</option>
+        <option value="1536x1024">1536×1024 横幅</option>
+      </select>
+      <input type="text" id="gen-extra" placeholder="额外要求（可留空），如 cinematic lighting">
+      <button class="gen-btn" id="btn-generate">生成图片</button>
+      <span class="status" id="gen-status">选好三项后点击生成</span>
+    </div>
+    <div class="gen-result" id="gen-result">
+      <img id="gen-img" alt="">
+      <div class="gen-actions" id="gen-actions" style="display:none">
+        <button class="save-btn primary" id="btn-save-img">保存到磁盘</button>
+        <button class="save-btn" id="btn-open-folder">打开输出文件夹</button>
+        <button class="save-btn" id="btn-copy-path">复制文件路径</button>
+        <span class="saved-hint" id="saved-hint"></span>
+      </div>
+      <div class="gen-logs" id="gen-logs"></div>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const BATCH = 60;
+const state = { pose:null, angle:'front', costume:null, face:null };
+const data  = { poses:[], costumes:[], faces:[] };
+const LOOK  = { angles:{}, hairNames:{}, secNames:{}, tagNames:{}, colorTags:new Set(),
+                 catNames:{}, groupNames:{} };
+
+const $ = s => document.querySelector(s);
+
+function toast(msg){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+/* ---------- 载入 ---------- */
+async function jget(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(url + ' → HTTP ' + r.status);
+  return r.json();
+}
+
+async function load(){
+  const [po, co, fa, tg] = await Promise.all([
+    jget('data/poses.json'),
+    jget('data/costumes.json'),
+    jget('data/faces.json'),
+    jget('data/tags.json').catch(()=>({tagNames:{},colorTags:[],groups:[]}))
+  ]);
+
+  data.poses    = po.poses || [];
+  data.costumes = co.costumes || [];
+  data.faces    = fa.images || [];
+
+  (po.angles||[]).forEach(a=> LOOK.angles[a.key] = a.names?.zh || a.key);
+  (fa.hairs||[]).forEach(h=> LOOK.hairNames[h.key] = h.names?.zh || h.key);
+  (fa.sections||[]).forEach(x=> LOOK.secNames[x.key] = x.names?.zh || x.key);
+  (co.categories||[]).forEach(x=> LOOK.catNames[x.key] = x.names?.zh || x.key);
+  (co.groups||[]).forEach(x=> LOOK.groupNames[x.key] = x.names?.zh || x.key);
+  LOOK.tagNames = tg.tagNames || {};
+  LOOK.colorTags = new Set(tg.colorTags || []);
+
+  $('#cnt-pose').textContent    = data.poses.length + ' 组';
+  $('#cnt-costume').textContent = data.costumes.length + ' 套';
+  $('#cnt-face').textContent    = data.faces.length + ' 张';
+
+  renderPose();
+  renderCostume();
+  renderFace();
+}
+
+/* ---------- 姿势 ---------- */
+let poseShown = 0, poseFiltered = [];
+function renderPose(reset=true){
+  const q = $('#q-pose').value.trim().toLowerCase();
+  poseFiltered = q
+    ? data.poses.filter(p=>{
+        const s = [p.no, p.category, p.id, p.names?.zh, p.names?.en, p.names?.ja]
+          .filter(Boolean).join(' ').toLowerCase();
+        return s.includes(q);
+      })
+    : data.poses;
+  if(reset) poseShown = 0;
+  const box = $('#list-pose');
+  box.innerHTML = '';
+  appendPose();
+}
+function appendPose(){
+  const box = $('#list-pose');
+  const slice = poseFiltered.slice(poseShown, poseShown + BATCH);
+  const frag = document.createDocumentFragment();
+  slice.forEach(p=>{
+    const v = p.variants?.find(x=>x.angle===state.angle) || p.variants?.[0];
+    if(!v) return;
+    const d = document.createElement('div');
+    d.className = 'item' + (state.pose?.id===p.id ? ' on' : '');
+    d.dataset.id = p.id;
+    d.innerHTML = `<img loading="lazy" src="${v.thumb}" alt=""><div class="no">${p.no||''}</div>`;
+    d.onclick = ()=> selectPose(p);
+    frag.appendChild(d);
+  });
+  poseShown += slice.length;
+  box.appendChild(frag);
+  if(poseShown < poseFiltered.length){
+    const m = document.createElement('div');
+    m.className = 'more';
+    m.textContent = `加载更多（还有 ${poseFiltered.length - poseShown} 组）`;
+    m.onclick = ()=>{ m.remove(); appendPose(); };
+    box.appendChild(m);
+  }
+}
+
+function selectPose(p){
+  try{
+    state.pose = p;
+    if(!p.variants?.some(v=>v.angle===state.angle)){
+      state.angle = p.variants?.[0]?.angle || 'front';
+    }
+    document.querySelectorAll('#list-pose .item').forEach(el=>{
+      el.classList.toggle('on', el.dataset.id===p.id);
+    });
+    paintPose();
+    buildPrompt();
+    drawSheet();
+  }catch(err){
+    console.error('selectPose 出错:', err);
+    toast('选姿势出错：' + err.message);
+  }
+}
+
+function paintPose(){
+  const p = state.pose;
+  const big = $('#big-pose'), meta = $('#meta-pose');
+  if(!p){
+    big.className='big empty'; big.textContent='未选';
+    meta.innerHTML='<div class="ln">点下面的图选一组姿态</div>';
+    return;
+  }
+  const v = p.variants.find(x=>x.angle===state.angle) || p.variants[0];
+  big.className='big';
+  big.innerHTML = `<img src="${v.thumb}" alt="">`;
+
+  const angles = (p.variants||[]).map(x=>{
+    const nm = LOOK.angles[x.angle] || x.angle;
+    const on = x.angle===state.angle ? ' on' : '';
+    return `<button class="${on.trim()}" data-a="${x.angle}">${nm}</button>`;
+  }).join('');
+
+  meta.innerHTML = `
+    <div class="ttl">${p.no||''} ${p.names?.zh||''}</div>
+    <div class="ln">${p.category||''} · ${p.names?.en||''}</div>
+    <div class="ln">${(p.variants||[]).length} 个视角</div>
+    <div class="angles" id="ang-box">${angles}</div>
+  `;
+  meta.querySelectorAll('#ang-box button').forEach(b=>{
+    b.onclick = ()=>{ state.angle = b.dataset.a; paintPose(); buildPrompt(); drawSheet(); };
+  });
+}
+
+/* ---------- 衣装 ---------- */
+let cShown = 0, cFiltered = [];
+function renderCostume(reset=true){
+  const q = $('#q-costume').value.trim().toLowerCase();
+  cFiltered = q
+    ? data.costumes.filter(c=>{
+        // 英文原文
+        let s = [c.id, c.cat, LOOK.catNames[c.cat], c.group, LOOK.groupNames[c.group],
+                 c.color, c.main, ...(c.tags||[])]
+          .filter(Boolean).join(' ').toLowerCase();
+        // 加上每个标签的中/日文名
+        (c.tags||[]).forEach(t=>{
+          const n = LOOK.tagNames[t];
+          if(n){ s += ' ' + (n.zh||'') + ' ' + (n.ja||''); }
+        });
+        return s.includes(q);
+      })
+    : data.costumes;
+  if(reset) cShown = 0;
+  $('#list-costume').innerHTML = '';
+  appendCostume();
+}
+function appendCostume(){
+  const box = $('#list-costume');
+  const slice = cFiltered.slice(cShown, cShown+BATCH);
+  const frag = document.createDocumentFragment();
+  slice.forEach(c=>{
+    const d = document.createElement('div');
+    d.className = 'item c-costume' + (state.costume?.id===c.id?' on':'');
+    d.dataset.id = c.id;
+    d.innerHTML = `<img loading="lazy" src="${c.thumb}" alt=""><div class="no">${c.id}</div>`;
+    d.onclick = ()=> selectCostume(c);
+    frag.appendChild(d);
+  });
+  cShown += slice.length;
+  box.appendChild(frag);
+  if(cShown < cFiltered.length){
+    const m = document.createElement('div');
+    m.className='more';
+    m.textContent = `加载更多（还有 ${cFiltered.length-cShown} 套）`;
+    m.onclick = ()=>{ m.remove(); appendCostume(); };
+    box.appendChild(m);
+  }
+}
+
+function selectCostume(c){
+  try{
+    state.costume = c;
+    document.querySelectorAll('#list-costume .item').forEach(el=>{
+      el.classList.toggle('on', el.dataset.id===c.id);
+    });
+    paintCostume();
+    buildPrompt();
+    drawSheet();
+  }catch(err){
+    console.error('selectCostume 出错:', err);
+    toast('选衣装出错：' + err.message);
+  }
+}
+
+function paintCostume(){
+  const c = state.costume;
+  const big = $('#big-costume'), meta = $('#meta-costume');
+  if(!c){
+    big.className='big empty'; big.textContent='未选';
+    meta.innerHTML='<div class="ln">点下面的图选一套衣装</div>';
+    return;
+  }
+  big.className='big';
+  big.innerHTML = `<img src="${c.thumb}" alt="">`;
+  const tags = (c.tags||[]).map(t=>`<span>${t}</span>`).join('');
+  meta.innerHTML = `
+    <div class="ttl">${c.id}</div>
+    <div class="ln">${c.cat||''} · ${c.group||''} · ${c.color||''}</div>
+    <div class="tags">${tags}</div>
+  `;
+}
+
+/* ---------- 人像 ---------- */
+let fShown = 0, fFiltered = [];
+function renderFace(reset=true){
+  const q = $('#q-face').value.trim().toLowerCase();
+  fFiltered = q
+    ? data.faces.filter(f=>{
+        const s = [f.id, f.sec, LOOK.secNames[f.sec], f.hair, f.style,
+                   LOOK.hairNames[f.hair]]
+          .filter(Boolean).join(' ').toLowerCase();
+        return s.includes(q);
+      })
+    : data.faces;
+  if(reset) fShown = 0;
+  $('#list-face').innerHTML = '';
+  appendFace();
+}
+function appendFace(){
+  const box = $('#list-face');
+  const slice = fFiltered.slice(fShown, fShown+BATCH);
+  const frag = document.createDocumentFragment();
+  slice.forEach(f=>{
+    const d = document.createElement('div');
+    d.className = 'item c-face' + (state.face?.id===f.id?' on':'');
+    d.dataset.id = f.id;
+    d.innerHTML = `<img loading="lazy" src="${f.thumb}" alt="">`;
+    d.onclick = ()=> selectFace(f);
+    frag.appendChild(d);
+  });
+  fShown += slice.length;
+  box.appendChild(frag);
+  if(fShown < fFiltered.length){
+    const m = document.createElement('div');
+    m.className='more';
+    m.textContent = `加载更多（还有 ${fFiltered.length-fShown} 张）`;
+    m.onclick = ()=>{ m.remove(); appendFace(); };
+    box.appendChild(m);
+  }
+}
+
+function selectFace(f){
+  try{
+    state.face = f;
+    document.querySelectorAll('#list-face .item').forEach(el=>{
+      el.classList.toggle('on', el.dataset.id===f.id);
+    });
+    paintFace();
+    buildPrompt();
+    drawSheet();
+  }catch(err){
+    console.error('selectFace 出错:', err);
+    toast('选人像出错：' + err.message);
+  }
+}
+
+function paintFace(){
+  const f = state.face;
+  const big = $('#big-face'), meta = $('#meta-face');
+  if(!f){
+    big.className='big empty'; big.textContent='未选';
+    meta.innerHTML='<div class="ln">点下面的图选一张人像</div>';
+    return;
+  }
+  big.className='big';
+  big.innerHTML = `<img src="${f.thumb}" alt="">`;
+  const hairCn = LOOK.hairNames[f.hair] || f.hair;
+  meta.innerHTML = `
+    <div class="ttl">${f.id}</div>
+    <div class="ln">${f.sec==='face'?'脸部':'造型'} · ${hairCn}（${f.hair}）</div>
+    ${f.style ? `<div class="ln">${f.style}</div>` : ''}
+    <div class="ln">${f.w}×${f.h}</div>
+  `;
+}
+
+/* ---------- 图像合成 ---------- */
+const IMG = { pose:null, costume:null, face:null };
+
+function loadImg(src){
+  return new Promise((res, rej)=>{
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = ()=>res(im);
+    im.onerror = ()=>rej(new Error('图片载入失败: '+src));
+    im.src = src;
+  });
+}
+
+/* 从四角泛洪填充，把连通的背景变透明 */
+function knockOut(img, tolerance = 26){
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const ctx = c.getContext('2d', {willReadFrequently:true});
+  ctx.drawImage(img, 0, 0);
+  const W = c.width, H = c.height;
+  let data;
+  try{ data = ctx.getImageData(0,0,W,H); }catch(e){ return c; } // 跨域保护
+  const px = data.data;
+
+  // 参考色：四角平均
+  const corners = [[0,0],[W-1,0],[0,H-1],[W-1,H-1]];
+  let br=0,bg=0,bb=0;
+  corners.forEach(([x,y])=>{
+    const i=(y*W+x)*4; br+=px[i]; bg+=px[i+1]; bb+=px[i+2];
+  });
+  br/=4; bg/=4; bb/=4;
+
+  const tol2 = tolerance*tolerance*3;
+  const visited = new Uint8Array(W*H);
+  const stack = corners.map(([x,y])=>y*W+x);
+
+  while(stack.length){
+    const p = stack.pop();
+    if(visited[p]) continue;
+    visited[p] = 1;
+    const i = p*4;
+    const dr = px[i]-br, dg = px[i+1]-bg, db = px[i+2]-bb;
+    if(dr*dr+dg*dg+db*db > tol2) continue;   // 不是背景，停
+
+    px[i+3] = 0;                              // 透明
+    const x = p % W, y = (p - x) / W;
+    if(x>0)     stack.push(p-1);
+    if(x<W-1)   stack.push(p+1);
+    if(y>0)     stack.push(p-W);
+    if(y<H-1)   stack.push(p+W);
+  }
+  ctx.putImageData(data, 0, 0);
+  return c;
+}
+
+/* 主渲染 */
+async function drawSheet(){
+  const cv   = $('#sheet');
+  const empty= $('#sheet-empty');
+  const hint = $('#sheet-hint');
+  const {pose, angle, costume, face} = state;
+  const any = pose || costume || face;
+
+  if(!any){
+    cv.style.display = 'none';
+    empty.style.display = 'block';
+    $('#btn-sheet-dl').disabled = true;
+    $('#btn-sheet-new').disabled = true;
+    hint.textContent = '选图后自动拼合';
+    return;
+  }
+
+  const ghost  = $('#opt-ghost').checked;
+  const doKnock= $('#opt-knock').checked;
+  hint.textContent = '拼合中…';
+
+  try{
+    // 三格布局：姿势(主) + 衣装(右) + 人像(右下小图)
+    const PAD = 20;
+    const MAIN_W = 560, MAIN_H = 760;
+    const SIDE_W = 380, SIDE_H = 400;
+    const W = PAD*3 + MAIN_W + SIDE_W;
+    const H = PAD*2 + MAIN_H;
+
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    // 背景
+    ctx.fillStyle = '#141922';
+    ctx.fillRect(0,0,W,H);
+    // 网格纹理
+    ctx.strokeStyle = '#1e2530';
+    ctx.lineWidth = 1;
+    for(let x=0; x<W; x+=28){ ctx.beginPath(); ctx.moveTo(x+.5,0); ctx.lineTo(x+.5,H); ctx.stroke(); }
+    for(let y=0; y<H; y+=28){ ctx.beginPath(); ctx.moveTo(0,y+.5); ctx.lineTo(W,y+.5); ctx.stroke(); }
+
+    // 加载三张图
+    const tasks = [];
+    if(pose){
+      const v = pose.variants.find(x=>x.angle===angle) || pose.variants[0];
+      tasks.push(loadImg(v.full).then(im=>{ IMG.pose=im; }).catch(()=>{}));
+    }
+    if(costume){
+      tasks.push(loadImg(costume.image).then(im=>{ IMG.costume=im; }).catch(()=>{}));
+    }
+    if(face){
+      tasks.push(loadImg(face.full_remote || face.full).then(im=>{ IMG.face=im; }).catch(()=>{}));
+    }
+    await Promise.all(tasks);
+
+    /* --- 主格：姿势 --- */
+    const px0 = PAD, py0 = PAD;
+    if(IMG.pose){
+      drawFit(ctx, IMG.pose, px0, py0, MAIN_W, MAIN_H, ghost ? 0.34 : 1.0, ghost);
+      label(ctx, pose.no + ' ' + (pose.names?.zh||''), px0+8, py0+MAIN_H-10);
+    }else{
+      placeholder(ctx, px0, py0, MAIN_W, MAIN_H, '未选姿势');
+    }
+
+    /* --- 右格上：衣装 --- */
+    const cx0 = PAD*2 + MAIN_W, cy0 = PAD;
+    if(IMG.costume){
+      const src = doKnock ? knockOut(IMG.costume, 26) : IMG.costume;
+      drawFit(ctx, src, cx0, cy0, SIDE_W, SIDE_H, 1.0, false);
+      label(ctx, costume.id + ' ' + (costume.color||''), cx0+8, cy0+SIDE_H-10);
+    }else{
+      placeholder(ctx, cx0, cy0, SIDE_W, SIDE_H, '未选衣装');
+    }
+
+    /* --- 右格下：人像 --- */
+    const fy0 = PAD*2 + SIDE_H;
+    if(IMG.face){
+      drawFit(ctx, IMG.face, cx0, fy0, SIDE_W, MAIN_H - SIDE_H - PAD, 1.0, false);
+      label(ctx, face.id + ' · ' + (LOOK.hairNames[face.hair]||face.hair), cx0+8, fy0+MAIN_H-SIDE_H-PAD-10);
+    }else{
+      placeholder(ctx, cx0, fy0, SIDE_W, MAIN_H - SIDE_H - PAD, '未选人像');
+    }
+
+    cv.style.display = 'block';
+    empty.style.display = 'none';
+    $('#btn-sheet-dl').disabled = false;
+    $('#btn-sheet-new').disabled = false;
+
+    const n = [pose,costume,face].filter(Boolean).length;
+    hint.textContent = `已合成 ${n}/3 项 · ${W}×${H}`;
+  }catch(err){
+    console.error(err);
+    hint.textContent = '合成失败：' + err.message;
+  }
+}
+
+/* 按比例绘制，可选半透明 */
+function drawFit(ctx, img, x, y, w, h, alpha=1, grayscale=false){
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  const s = Math.min(w/iw, h/ih);
+  const dw = iw*s, dh = ih*s;
+  const dx = x + (w-dw)/2, dy = y + (h-dh)/2;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if(grayscale) ctx.filter = 'grayscale(1) contrast(.85)';
+  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.restore();
+}
+
+function placeholder(ctx, x, y, w, h, text){
+  ctx.save();
+  ctx.strokeStyle = '#2a3040';
+  ctx.setLineDash([6,6]);
+  ctx.strokeRect(x+.5, y+.5, w-1, h-1);
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3b4656';
+  ctx.font = '14px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x+w/2, y+h/2);
+  ctx.restore();
+}
+
+function label(ctx, text, x, y){
+  ctx.save();
+  const m = ctx.measureText(text);
+  ctx.fillStyle = '#000000cc';
+  ctx.fillRect(x-6, y-14, (m.width||160)+12, 20);
+  ctx.fillStyle = '#c9d5e5';
+  ctx.font = '11px ui-monospace, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function buildPrompt(){
+  const {pose, angle, costume, face} = state;
+  const L = [];
+
+  // 主体
+  if(face){
+    const hair = face.hair;
+    L.push(`1girl, ${hair} hair, detailed face`);
+    if(face.style) L.push(`hair style: ${face.style}`);
+  } else {
+    L.push('1girl');
+  }
+
+  // 姿势：用英文名 + 视角提示
+  if(pose){
+    const angMap = {front:'front view', high:'high angle shot', low:'low angle shot',
+                    side:'side view', diagonal:'three-quarter view'};
+    L.push(pose.names?.en ? pose.names.en.toLowerCase() : '');
+    L.push(angMap[angle] || '');
+  }
+
+  // 衣装：标签转提示词
+  if(costume){
+    const skip = new Set(['white','black','red','brown','blue','pink','gray','grey',
+                          'beige','navy','green','purple','yellow','orange','ivory','khaki']);
+    const colors = (costume.tags||[]).filter(t=>skip.has(t));
+    const items  = (costume.tags||[]).filter(t=>!skip.has(t));
+    if(items.length)  L.push(items.join(', '));
+    if(colors.length) L.push(colors.join(', ') + ' color scheme');
+  }
+
+  // 收尾质量词
+  L.push('full body, high quality, detailed');
+
+  const txt = L.filter(Boolean).join(', ').replace(/\s+/g,' ').trim();
+  const out = $('#prompt');
+  out.value = txt;
+
+  const n = [pose,costume,face].filter(Boolean).length;
+  $('#out-hint').textContent = n===3
+    ? '三项齐全 ✓ 可直接复制'
+    : `已选 ${n}/3 项${n===0?' · 至少选一项':' · 继续选更完整'}`;
+
+  out.style.color = n===3 ? '#c9e8d0' : '#7d8a9a';
+}
+
+/* ---------- 事件 ---------- */
+['pose','costume','face'].forEach(k=>{
+  const el = $('#q-'+k);
+  let tm;
+  el.addEventListener('input', ()=>{
+    clearTimeout(tm);
+    tm = setTimeout(()=>{
+      if(k==='pose') renderPose();
+      if(k==='costume') renderCostume();
+      if(k==='face') renderFace();
+    }, 160);
+  });
+});
+
+document.querySelectorAll('[data-clear]').forEach(b=>{
+  b.onclick = ()=>{
+    const k = b.dataset.clear;
+    state[k] = null;
+    if(k==='pose') paintPose();
+    if(k==='costume') paintCostume();
+    if(k==='face') paintFace();
+    document.querySelectorAll(`#list-${k} .item.on`).forEach(e=>e.classList.remove('on'));
+    buildPrompt();
+    drawSheet();
+  };
+});
+
+$('#btn-copy').onclick = async ()=>{
+  const v = $('#prompt').value;
+  if(!v){ toast('还没有内容'); return; }
+  try{
+    await navigator.clipboard.writeText(v);
+    toast('提示词已复制');
+  }catch{
+    $('#prompt').select();
+    document.execCommand('copy');
+    toast('提示词已复制');
+  }
+};
+
+$('#btn-paths').onclick = async ()=>{
+  const {pose, angle, costume, face} = state;
+  if(!pose && !costume && !face){ toast('还没选任何素材'); return; }
+  const L = [];
+  if(pose){
+    const v = pose.variants.find(x=>x.angle===angle) || pose.variants[0];
+    L.push(`# 姿势 (${pose.no} ${pose.names?.zh||''} · ${LOOK.angles[angle]||angle})`);
+    L.push(v.full);
+  }
+  if(costume){
+    L.push(`# 衣装 (${costume.id})`);
+    L.push(costume.image);
+  }
+  if(face){
+    L.push(`# 人像 (${face.id})`);
+    L.push(face.full);
+  }
+  const txt = L.join('\n');
+  try{
+    await navigator.clipboard.writeText(txt);
+    toast('路径已复制');
+  }catch{
+    toast('复制失败，请手动选中');
+  }
+};
+
+$('#btn-reset').onclick = ()=>{
+  state.pose = null; state.costume = null; state.face = null;
+  IMG.pose = IMG.costume = IMG.face = null;
+  paintPose(); paintCostume(); paintFace(); buildPrompt(); drawSheet();
+  document.querySelectorAll('.item.on').forEach(e=>e.classList.remove('on'));
+  toast('已重置');
+};
+
+/* 合成区开关 */
+$('#opt-ghost').onchange = drawSheet;
+$('#opt-knock').onchange = drawSheet;
+
+/* 下载合成图 */
+$('#btn-sheet-dl').onclick = ()=>{
+  const cv = $('#sheet');
+  if(!cv.width || cv.style.display==='none'){ toast('还没有合成图'); return; }
+  try{
+    const url = cv.toDataURL('image/png');
+    const a = document.createElement('a');
+    const {pose, costume, face} = state;
+    const name = [
+      pose ? (pose.no||pose.id) : '',
+      costume ? costume.id : '',
+      face ? face.id.slice(0,8) : ''
+    ].filter(Boolean).join('_') || 'sheet';
+    a.href = url;
+    a.download = `合成_${name}.png`;
+    a.click();
+    toast('合成图已下载');
+  }catch(err){
+    toast('下载失败：' + err.message);
+  }
+};
+
+/* 新窗口看大图 */
+$('#btn-sheet-new').onclick = ()=>{
+  const cv = $('#sheet');
+  if(!cv.width || cv.style.display==='none'){ toast('还没有合成图'); return; }
+  try{
+    const url = cv.toDataURL('image/png');
+    const w = window.open('', '_blank');
+    if(!w){ toast('窗口被拦截，请允许弹窗'); return; }
+    w.document.write(`<html><head><title>合成预览</title>
+      <style>body{margin:0;background:#0b0e13;display:flex;align-items:center;
+      justify-content:center;min-height:100vh}img{max-width:100%;max-height:100vh}</style>
+      </head><body><img src="${url}"></body></html>`);
+    w.document.close();
+  }catch(err){
+    toast('打开失败：' + err.message);
+  }
+};
+
+/* ---------- 出图 ---------- */
+$('#btn-generate').onclick = async ()=>{
+  const {pose, angle, costume, face} = state;
+  if(!pose && !costume && !face){
+    toast('至少选一项参考');
+    return;
+  }
+  const btn = $('#btn-generate');
+  const st  = $('#gen-status');
+  const box = $('#gen-result');
+  const logs= $('#gen-logs');
+  const img = $('#gen-img');
+
+  btn.disabled = true;
+  box.classList.add('on');
+  logs.textContent = '';
+  img.style.display = 'none';
+  st.textContent = '生成中…';
+
+  const addLog = t => {
+    logs.textContent += t + '\n';
+    logs.scrollTop = logs.scrollHeight;
+  };
+
+  const payload = {
+    pose: pose ? {
+      no: pose.no,
+      name: pose.names?.zh || '',
+      image: (pose.variants.find(v=>v.angle===angle) || pose.variants[0]).full
+    } : null,
+    angle: angle,
+    costume: costume ? {id: costume.id, image: costume.image} : null,
+    face: face ? {id: face.id, thumb: face.thumb} : null,
+    extra: $('#gen-extra').value.trim(),
+    size: $('#gen-size').value
+  };
+
+  addLog('提交请求…');
+
+  try{
+    const r = await fetch('/api/generate', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+
+    if(d.logs) d.logs.forEach(addLog);
+
+    if(!d.ok){
+      addLog('❌ ' + (d.error || '未知错误'));
+      logs.innerHTML = logs.textContent.replace(/❌.*/g, m=>`<span class="err">${m}</span>`);
+      st.textContent = '失败';
+      return;
+    }
+
+    img.src = 'data:image/png;base64,' + d.b64;
+    img.style.display = 'block';
+    st.textContent = `完成 · ${d.elapsed}s · ${d.file}`;
+    // 记录当前文件，供保存按钮使用
+    window.__lastGen = { file: d.file, path: d.path, b64: d.b64 };
+    $('#gen-actions').style.display = 'flex';
+    $('#saved-hint').textContent = '已自动保存到磁盘';
+    toast('生成完成');
+  }catch(err){
+    addLog('❌ ' + err.message);
+    st.textContent = '请求失败';
+  }finally{
+    btn.disabled = false;
+  }
+};
+
+/* ---------- 保存 ---------- */
+$('#btn-save-img').onclick = async ()=>{
+  const g = window.__lastGen;
+  if(!g){ toast('还没有生成图片'); return; }
+  try{
+    const a = document.createElement('a');
+    a.href = 'data:image/png;base64,' + g.b64;
+    a.download = g.file;
+    a.click();
+    $('#saved-hint').textContent = '已下载到「下载」文件夹';
+    toast('已保存');
+  }catch(e){
+    toast('保存失败：' + e.message);
+  }
+};
+
+$('#btn-open-folder').onclick = async ()=>{
+  try{
+    const r = await fetch('/api/open-folder', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:'{}'
+    });
+    const d = await r.json();
+    if(d.ok) toast('已打开文件夹');
+    else toast('打开失败：' + d.error);
+  }catch(e){
+    toast('打开失败：' + e.message);
+  }
+};
+
+$('#btn-copy-path').onclick = async ()=>{
+  const g = window.__lastGen;
+  if(!g){ toast('还没有生成图片'); return; }
+  try{
+    await navigator.clipboard.writeText(g.path);
+    toast('路径已复制');
+  }catch(e){
+    toast('复制失败');
+  }
+};
+
+/* 键盘：← → 切姿势角度 */
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT' || e.target.tagName==='TEXTAREA') return;
+  if(!state.pose) return;
+  const order = state.pose.variants.map(v=>v.angle);
+  const i = order.indexOf(state.angle);
+  if(e.key==='ArrowRight' && i>-1 && i<order.length-1){
+    state.angle = order[i+1]; paintPose(); buildPrompt(); drawSheet();
+  }
+  if(e.key==='ArrowLeft' && i>0){
+    state.angle = order[i-1]; paintPose(); buildPrompt(); drawSheet();
+  }
+});
+
+load().then(buildPrompt).catch(err=>{
+  console.error(err);
+  document.body.insertAdjacentHTML('afterbegin',
+    `<div style="padding:20px;background:#3d1d1d;color:#ffb3b3">
+       数据载入失败：${err.message}<br>请确认通过 HTTP 访问（不要双击 HTML）
+     </div>`);
+});
+</script>
+</body>
+</html>
